@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { processMessage } from '@/utils/messageProcessor';
 import { toast } from 'sonner';
 import { Transaction } from '@/hooks/useTransactions';
+import { Mic } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -24,12 +25,13 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: '🤖 Olá! Sou seu assistente financeiro. Envie mensagens como:\n\n💸 GASTOS:\n• "gastei 20 com marmita"\n• "comprei uma pizza de 30"\n• "paguei 50 de gasolina"\n\n💰 GANHOS:\n• "ganhei 50 do freelance"\n• "recebi um pix de 40"\n• "vendi um produto de 20"\n\n📊 RELATÓRIOS:\n• "gastos do dia"\n• "lucro do dia"\n• "faturamento"\n• "saldo do dia"',
+      text: '🤖 Olá! Sou seu assistente financeiro!\nEnvie mensagens como:\n💸 "gastei 20 com marmita"\n💰 "ganhei 50 do freelance"\n📊 "saldo do dia", "lucro do dia"',
       isUser: false,
       timestamp: new Date()
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -55,43 +57,49 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
 
     setTimeout(() => {
       setMessages(prev => [...prev, botMessage]);
-    }, 1000);
+    }, 500);
 
     setInputMessage('');
     toast.success('Mensagem enviada!');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       sendMessage();
     }
   };
 
+  const handleVoiceRecord = () => {
+    setIsRecording(!isRecording);
+    toast.info('Funcionalidade de áudio será implementada em breve!');
+  };
+
   return (
-    <Card className="h-[600px] flex flex-col">
-      <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
-        <CardTitle className="flex items-center gap-2">
+    <Card className="h-[90vh] md:h-[600px] flex flex-col max-w-full">
+      <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg flex-shrink-0">
+        <CardTitle className="flex items-center gap-2 text-sm md:text-base">
           <div className="w-3 h-3 bg-green-300 rounded-full animate-pulse"></div>
           Assistente Financeiro WhatsApp
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-0">
-        <ScrollArea className="flex-1 p-4 bg-gray-50">
-          <div className="space-y-4">
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+        <ScrollArea className="flex-1 p-2 md:p-4 bg-gray-50 min-h-0">
+          <div className="space-y-3 md:space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] p-3 rounded-lg ${
+                  className={`max-w-[85%] md:max-w-[80%] p-2 md:p-3 rounded-lg text-sm md:text-base ${
                     message.isUser
                       ? 'bg-blue-500 text-white rounded-br-none'
                       : 'bg-white text-gray-800 rounded-bl-none shadow-sm border'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{message.text}</p>
+                  <p className="whitespace-pre-line break-words">{message.text}</p>
                   <p className={`text-xs mt-1 ${
                     message.isUser ? 'text-blue-100' : 'text-gray-500'
                   }`}>
@@ -106,18 +114,30 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
           </div>
         </ScrollArea>
         
-        <div className="p-4 border-t bg-white">
-          <div className="flex gap-2">
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Digite sua mensagem..."
-              className="flex-1"
-            />
+        <div className="p-2 md:p-4 border-t bg-white flex-shrink-0">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 flex gap-2">
+              <Input
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Digite sua mensagem..."
+                className="flex-1 text-sm md:text-base"
+                rows={1}
+              />
+              <Button
+                onClick={handleVoiceRecord}
+                variant="outline"
+                size="icon"
+                className={`flex-shrink-0 ${isRecording ? 'bg-red-500 text-white' : ''}`}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            </div>
             <Button 
               onClick={sendMessage}
-              className="bg-green-500 hover:bg-green-600"
+              className="bg-green-500 hover:bg-green-600 flex-shrink-0"
+              size="default"
             >
               Enviar
             </Button>
