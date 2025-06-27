@@ -26,15 +26,15 @@ export const AdminPanel = () => {
       toast.info('Criando instância...');
       console.log('Tentando criar instância com:', { instanceName, evolutionApiKey });
       
-      // Payload correto conforme documentação da Evolution API
+      // Payload simplificado conforme documentação Evolution API v2
       const payload = {
         instanceName: instanceName.trim(),
-        qrcode: true,
-        integration: "WHATSAPP-BAILEYS"
+        qrcode: true
       };
       
       console.log('Payload enviado:', payload);
       
+      // Endpoint correto para Evolution API v2
       const response = await fetch('https://v2.solucoesweb.uk/instance/create', {
         method: 'POST',
         headers: {
@@ -45,57 +45,87 @@ export const AdminPanel = () => {
       });
 
       console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       const responseText = await response.text();
-      console.log('Response completa:', responseText);
+      console.log('Response completa (texto):', responseText);
       
       let data;
       try {
         data = JSON.parse(responseText);
+        console.log('Response parseada:', data);
       } catch (parseError) {
         console.error('Erro ao fazer parse da resposta:', parseError);
         console.error('Resposta raw:', responseText);
-        throw new Error(`Resposta inválida da API (Status: ${response.status}): ${responseText}`);
+        
+        // Se não conseguiu fazer parse, pode ser HTML de erro
+        if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
+          throw new Error(`Servidor retornou HTML em vez de JSON. Verifique se a URL da API está correta.`);
+        }
+        
+        throw new Error(`Resposta inválida da API (Status: ${response.status}): ${responseText.substring(0, 200)}...`);
       }
       
       if (response.ok) {
-        console.log('Instância criada com sucesso:', data);
+        console.log('✅ Instância criada com sucesso:', data);
         setInstanceData(data);
         setIsConnected(true);
         toast.success('Instância criada com sucesso!');
         
-        // Buscar QR Code após criar instância
+        // Aguardar um pouco antes de buscar QR Code
         setTimeout(() => {
           getQRCode();
-        }, 3000);
+        }, 2000);
       } else {
-        console.error('Erro na resposta da API:', {
+        console.error('❌ Erro na resposta da API:', {
           status: response.status,
           statusText: response.statusText,
           data: data
         });
         
-        // Tratamento específico para diferentes tipos de erro
+        // Tratamento específico por status code
         let errorMessage = 'Erro desconhecido ao criar instância';
         
         if (response.status === 400) {
-          errorMessage = `Bad Request: ${data?.message || data?.error || 'Verifique os dados enviados'}`;
+          const badRequestDetails = data?.message || data?.error || data?.details || 'Dados inválidos';
+          errorMessage = `Bad Request (400): ${badRequestDetails}`;
+          
+          // Verificações específicas para Bad Request
+          if (badRequestDetails.toLowerCase().includes('already exists')) {
+            errorMessage = `Instância "${instanceName}" já existe. Tente outro nome.`;
+          } else if (badRequestDetails.toLowerCase().includes('invalid')) {
+            errorMessage = `Nome da instância inválido. Use apenas letras, números e hífen.`;
+          }
         } else if (response.status === 401) {
-          errorMessage = 'Chave da API inválida ou expirada';
+          errorMessage = 'Chave da API inválida ou expirada (401)';
+        } else if (response.status === 403) {
+          errorMessage = 'Acesso negado. Verifique suas permissões (403)';
+        } else if (response.status === 404) {
+          errorMessage = 'Endpoint não encontrado. Verifique a URL da API (404)';
         } else if (response.status === 409) {
-          errorMessage = 'Instância já existe com este nome';
+          errorMessage = `Instância "${instanceName}" já existe (409)`;
+        } else if (response.status === 429) {
+          errorMessage = 'Muitas requisições. Aguarde alguns minutos (429)';
         } else if (response.status === 500) {
-          errorMessage = 'Erro interno do servidor da Evolution API';
+          errorMessage = 'Erro interno do servidor da Evolution API (500)';
+        } else if (response.status === 502 || response.status === 503) {
+          errorMessage = 'Servidor temporariamente indisponível. Tente novamente (502/503)';
         } else {
           errorMessage = `Erro ${response.status}: ${data?.message || data?.error || response.statusText}`;
         }
         
+        toast.error(errorMessage);
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Erro detalhado ao criar instância:', error);
-      toast.error(`Erro: ${error.message}`);
+      console.error('🚨 Erro detalhado ao criar instância:', error);
+      
+      if (error.message.includes('fetch')) {
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (!error.message.includes('Bad Request') && !error.message.includes('Erro')) {
+        toast.error(`Erro de conexão: ${error.message}`);
+      }
+      // Outros erros já foram tratados acima
     } finally {
       setIsCreating(false);
     }
@@ -103,7 +133,7 @@ export const AdminPanel = () => {
 
   const getQRCode = async () => {
     try {
-      console.log('Buscando QR Code para instância:', instanceName);
+      console.log('🔍 Buscando QR Code para instância:', instanceName);
       
       const response = await fetch(`https://v2.solucoesweb.uk/instance/connect/${instanceName}`, {
         method: 'GET',
@@ -125,15 +155,20 @@ export const AdminPanel = () => {
         return;
       }
       
-      if (response.ok && data.base64) {
-        setQrCode(data.base64);
-        toast.success('QR Code gerado! Escaneie com o WhatsApp');
-      } else if (response.ok && !data.base64) {
-        console.log('QR Code não disponível ainda, tentando novamente...');
-        toast.info('Aguardando QR Code...');
-        setTimeout(() => {
-          getQRCode();
-        }, 5000);
+      if (response.ok) {
+        if (data.base64) {
+          setQrCode(data.base64);
+          toast.success('QR Code gerado! Escaneie com o WhatsApp');
+        } else if (data.code) {
+          setQrCode(data.code);
+          toast.success('QR Code gerado! Escaneie com o WhatsApp');
+        } else {
+          console.log('QR Code não disponível ainda, tentando novamente em 3s...');
+          toast.info('Aguardando QR Code...');
+          setTimeout(() => {
+            getQRCode();
+          }, 3000);
+        }
       } else {
         console.error('Erro ao buscar QR Code:', data);
         toast.error(`Erro ao buscar QR Code: ${data?.message || 'Erro desconhecido'}`);
@@ -148,7 +183,7 @@ export const AdminPanel = () => {
     if (!instanceName) return;
     
     try {
-      console.log('Verificando status da instância:', instanceName);
+      console.log('🔄 Verificando status da instância:', instanceName);
       
       const response = await fetch(`https://v2.solucoesweb.uk/instance/connectionState/${instanceName}`, {
         method: 'GET',
@@ -167,6 +202,10 @@ export const AdminPanel = () => {
       if (data.instance?.state === 'open') {
         toast.success('WhatsApp conectado com sucesso!');
         setQrCode('');
+      } else if (data.instance?.state === 'connecting') {
+        toast.info('Conectando ao WhatsApp...');
+      } else if (data.instance?.state === 'close') {
+        toast.warning('WhatsApp desconectado');
       } else {
         toast.info(`Status: ${data.instance?.state || 'Desconhecido'}`);
       }
@@ -180,7 +219,7 @@ export const AdminPanel = () => {
     try {
       const message = `👋 Teste de mensagem do sistema!\nData: ${new Date().toLocaleString()}\nSistema funcionando corretamente! 🎉`;
       
-      console.log('Enviando mensagem de teste...');
+      console.log('📤 Enviando mensagem de teste...');
       
       const response = await fetch(`https://v2.solucoesweb.uk/message/sendText/${instanceName}`, {
         method: 'POST',
@@ -189,7 +228,7 @@ export const AdminPanel = () => {
           'apikey': evolutionApiKey
         },
         body: JSON.stringify({
-          number: '5544991082160', // Número de teste
+          number: '5544991082160',
           text: message
         })
       });
@@ -232,7 +271,7 @@ export const AdminPanel = () => {
               id="instanceName"
               value={instanceName}
               onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="Ex: financeiro, meu-whatsapp (apenas letras, números e hífen)"
+              placeholder="Ex: financeiro, meuwhatsapp"
             />
             <p className="text-xs text-gray-500">
               Use apenas letras, números e hífen. Sem espaços ou caracteres especiais.
@@ -247,11 +286,11 @@ export const AdminPanel = () => {
             {isCreating ? 'Criando...' : isConnected ? 'Instância Criada ✅' : 'Criar Instância'}
           </Button>
 
-          {/* Mostrar dados da resposta para debug */}
+          {/* Debug da resposta */}
           {instanceData && (
             <div className="p-4 border rounded-lg bg-gray-50">
-              <h3 className="font-semibold mb-2">Debug - Resposta da API:</h3>
-              <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-32">
+              <h3 className="font-semibold mb-2">✅ Resposta da API:</h3>
+              <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-32 whitespace-pre-wrap">
                 {JSON.stringify(instanceData, null, 2)}
               </pre>
             </div>
@@ -260,21 +299,21 @@ export const AdminPanel = () => {
           {isConnected && (
             <div className="space-y-4">
               <div className="p-4 border rounded-lg bg-green-50">
-                <h3 className="font-semibold text-green-800 mb-2">Status: Conectado</h3>
-                <p className="text-sm text-green-600">Evolution API está funcionando corretamente</p>
-                <p className="text-sm text-green-600">Instância: {instanceName}</p>
+                <h3 className="font-semibold text-green-800 mb-2">✅ Status: Conectado</h3>
+                <p className="text-sm text-green-600">Evolution API está funcionando</p>
+                <p className="text-sm text-green-600">Instância: <strong>{instanceName}</strong></p>
               </div>
 
               {qrCode && (
                 <div className="text-center space-y-2">
-                  <h3 className="font-semibold">Conectar WhatsApp</h3>
+                  <h3 className="font-semibold">📱 Conectar WhatsApp</h3>
                   <div className="border p-4 rounded-lg bg-white">
                     <p className="text-sm text-gray-600 mb-2">Escaneie o QR Code com o WhatsApp</p>
                     <div className="flex justify-center">
                       <img 
                         src={`data:image/png;base64,${qrCode}`} 
                         alt="QR Code"
-                        className="max-w-64 max-h-64"
+                        className="max-w-64 max-h-64 border rounded"
                       />
                     </div>
                   </div>
@@ -283,13 +322,13 @@ export const AdminPanel = () => {
                     variant="outline"
                     size="sm"
                   >
-                    Verificar Conexão
+                    🔄 Verificar Conexão
                   </Button>
                 </div>
               )}
 
               <div className="p-4 border rounded-lg bg-blue-50">
-                <h3 className="font-semibold text-blue-800 mb-2">Teste de Mensagem</h3>
+                <h3 className="font-semibold text-blue-800 mb-2">📤 Teste de Mensagem</h3>
                 <p className="text-sm text-blue-600 mb-2">Enviar mensagem de teste:</p>
                 <Button 
                   onClick={sendTestMessage}
