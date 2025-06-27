@@ -26,41 +26,37 @@ export const AdminPanel = () => {
       toast.info('Criando instância...');
       console.log('Tentando criar instância com:', { instanceName, evolutionApiKey });
       
+      // Payload correto conforme documentação da Evolution API
+      const payload = {
+        instanceName: instanceName.trim(),
+        qrcode: true,
+        integration: "WHATSAPP-BAILEYS"
+      };
+      
+      console.log('Payload enviado:', payload);
+      
       const response = await fetch('https://v2.solucoesweb.uk/instance/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': evolutionApiKey
         },
-        body: JSON.stringify({
-          instanceName: instanceName,
-          token: evolutionApiKey,
-          qrcode: true,
-          number: '',
-          typebot: '',
-          webhook: '',
-          webhook_by_events: false,
-          events: [],
-          reject_call: false,
-          msg_call: '',
-          groups_ignore: false,
-          always_online: false,
-          read_messages: false,
-          read_status: false,
-          sync_full_history: false
-        })
+        body: JSON.stringify(payload)
       });
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
       const responseText = await response.text();
-      console.log('Response text:', responseText);
+      console.log('Response completa:', responseText);
       
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error('Erro ao fazer parse da resposta:', parseError);
-        throw new Error(`Resposta inválida da API: ${responseText}`);
+        console.error('Resposta raw:', responseText);
+        throw new Error(`Resposta inválida da API (Status: ${response.status}): ${responseText}`);
       }
       
       if (response.ok) {
@@ -72,10 +68,30 @@ export const AdminPanel = () => {
         // Buscar QR Code após criar instância
         setTimeout(() => {
           getQRCode();
-        }, 2000);
+        }, 3000);
       } else {
-        console.error('Erro na resposta da API:', data);
-        throw new Error(data.message || data.error || 'Erro desconhecido ao criar instância');
+        console.error('Erro na resposta da API:', {
+          status: response.status,
+          statusText: response.statusText,
+          data: data
+        });
+        
+        // Tratamento específico para diferentes tipos de erro
+        let errorMessage = 'Erro desconhecido ao criar instância';
+        
+        if (response.status === 400) {
+          errorMessage = `Bad Request: ${data?.message || data?.error || 'Verifique os dados enviados'}`;
+        } else if (response.status === 401) {
+          errorMessage = 'Chave da API inválida ou expirada';
+        } else if (response.status === 409) {
+          errorMessage = 'Instância já existe com este nome';
+        } else if (response.status === 500) {
+          errorMessage = 'Erro interno do servidor da Evolution API';
+        } else {
+          errorMessage = `Erro ${response.status}: ${data?.message || data?.error || response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Erro detalhado ao criar instância:', error);
@@ -105,25 +121,26 @@ export const AdminPanel = () => {
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error('Erro ao fazer parse do QR:', parseError);
+        toast.error('Erro ao processar resposta do QR Code');
         return;
       }
       
-      if (data.base64) {
+      if (response.ok && data.base64) {
         setQrCode(data.base64);
         toast.success('QR Code gerado! Escaneie com o WhatsApp');
-      } else {
+      } else if (response.ok && !data.base64) {
         console.log('QR Code não disponível ainda, tentando novamente...');
-        // Tentar novamente após alguns segundos
+        toast.info('Aguardando QR Code...');
         setTimeout(() => {
           getQRCode();
-        }, 3000);
+        }, 5000);
+      } else {
+        console.error('Erro ao buscar QR Code:', data);
+        toast.error(`Erro ao buscar QR Code: ${data?.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
-      toast.error('Erro ao buscar QR Code. Tentando novamente...');
-      setTimeout(() => {
-        getQRCode();
-      }, 5000);
+      toast.error('Erro de conexão ao buscar QR Code');
     }
   };
 
@@ -140,7 +157,11 @@ export const AdminPanel = () => {
         }
       });
 
-      const data = await response.json();
+      console.log('Status response:', response.status);
+      const responseText = await response.text();
+      console.log('Status response text:', responseText);
+
+      const data = JSON.parse(responseText);
       console.log('Status da instância:', data);
       
       if (data.instance?.state === 'open') {
@@ -211,8 +232,11 @@ export const AdminPanel = () => {
               id="instanceName"
               value={instanceName}
               onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="Ex: financeiro, meu-whatsapp"
+              placeholder="Ex: financeiro, meu-whatsapp (apenas letras, números e hífen)"
             />
+            <p className="text-xs text-gray-500">
+              Use apenas letras, números e hífen. Sem espaços ou caracteres especiais.
+            </p>
           </div>
 
           <Button 
@@ -222,6 +246,16 @@ export const AdminPanel = () => {
           >
             {isCreating ? 'Criando...' : isConnected ? 'Instância Criada ✅' : 'Criar Instância'}
           </Button>
+
+          {/* Mostrar dados da resposta para debug */}
+          {instanceData && (
+            <div className="p-4 border rounded-lg bg-gray-50">
+              <h3 className="font-semibold mb-2">Debug - Resposta da API:</h3>
+              <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-32">
+                {JSON.stringify(instanceData, null, 2)}
+              </pre>
+            </div>
+          )}
 
           {isConnected && (
             <div className="space-y-4">
