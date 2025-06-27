@@ -7,7 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { processMessage } from '@/utils/messageProcessor';
 import { toast } from 'sonner';
 import { Transaction } from '@/hooks/useTransactions';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
+import { useAudioRecording } from '@/hooks/useAudioRecording';
 
 interface Message {
   id: string;
@@ -31,7 +32,7 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
+  const { isRecording, startRecording, stopRecording } = useAudioRecording();
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -70,9 +71,48 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
     }
   };
 
-  const handleVoiceRecord = () => {
-    setIsRecording(!isRecording);
-    toast.info('Funcionalidade de áudio será implementada em breve!');
+  const handleVoiceRecord = async () => {
+    if (isRecording) {
+      const audioBlob = await stopRecording();
+      if (audioBlob) {
+        await transcribeAudio(audioBlob);
+      }
+    } else {
+      await startRecording();
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      toast.info('Transcrevendo áudio...');
+      
+      // Converter para base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        
+        const response = await fetch('/api/transcribe-audio', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ audio: base64Audio }),
+        });
+
+        if (response.ok) {
+          const { text } = await response.json();
+          setInputMessage(text);
+          toast.success('Áudio transcrito com sucesso!');
+        } else {
+          toast.error('Erro ao transcrever áudio');
+        }
+      };
+      
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error('Erro na transcrição:', error);
+      toast.error('Erro ao transcrever áudio');
+    }
   };
 
   return (
@@ -123,15 +163,14 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
                 onKeyPress={handleKeyPress}
                 placeholder="Digite sua mensagem..."
                 className="flex-1 text-sm md:text-base"
-                rows={1}
               />
               <Button
                 onClick={handleVoiceRecord}
                 variant="outline"
                 size="icon"
-                className={`flex-shrink-0 ${isRecording ? 'bg-red-500 text-white' : ''}`}
+                className={`flex-shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : ''}`}
               >
-                <Mic className="h-4 w-4" />
+                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
             </div>
             <Button 

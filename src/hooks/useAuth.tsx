@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -29,6 +30,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
+  const sendWelcomeMessage = async (phone: string, password: string) => {
+    try {
+      const response = await fetch('https://v2.solucoesweb.uk/message/sendText/financial-assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'cc2ad6931f7c17a9e98d10127c43dfbf'
+        },
+        body: JSON.stringify({
+          number: phone.replace(/\D/g, ''),
+          text: `👋 Olá, seja bem-vindo!\nAqui estão seus dados de acesso:\nUsuário: ${phone}\nSenha: ${password}\nVocê ganhou 7 dias grátis para testar nosso sistema financeiro inteligente. Aproveite! 🎁`
+        })
+      });
+
+      if (response.ok) {
+        console.log('Mensagem de boas-vindas enviada via WhatsApp');
+      } else {
+        console.error('Erro ao enviar mensagem de boas-vindas');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem de boas-vindas:', error);
+    }
+  };
+
   const signUp = async (phone: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
@@ -58,7 +83,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
       
-      toast.success('Conta criada com sucesso!');
+      // Enviar mensagem de boas-vindas via WhatsApp
+      await sendWelcomeMessage(phone, password);
+      
+      toast.success('Conta criada com sucesso! Mensagem de boas-vindas enviada no WhatsApp!');
       return true;
     } catch (error) {
       console.error('Erro interno:', error);

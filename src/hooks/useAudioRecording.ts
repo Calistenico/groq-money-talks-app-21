@@ -4,13 +4,13 @@ import { toast } from 'sonner';
 
 export const useAudioRecording = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -21,41 +21,42 @@ export const useAudioRecording = () => {
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/wav' });
-        setAudioBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
       mediaRecorder.start();
       setIsRecording(true);
-      toast.success('Gravação iniciada');
+      toast.info('Gravação iniciada...');
     } catch (error) {
-      toast.error('Erro ao acessar o microfone');
-      console.error('Erro:', error);
+      console.error('Erro ao iniciar gravação:', error);
+      toast.error('Erro ao acessar microfone');
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      toast.success('Gravação finalizada');
-    }
-  };
+  const stopRecording = (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const mediaRecorder = mediaRecorderRef.current;
+      
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        resolve(null);
+        return;
+      }
 
-  const transcribeAudio = async (blob: Blob): Promise<string> => {
-    // Aqui seria implementada a integração com GROQ
-    // Por enquanto, retornamos uma mensagem simulada
-    toast.info('Transcrição com GROQ será implementada em breve');
-    return 'Transcrição simulada do áudio';
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        
+        // Parar todas as tracks
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        
+        setIsRecording(false);
+        toast.success('Gravação finalizada!');
+        resolve(audioBlob);
+      };
+
+      mediaRecorder.stop();
+    });
   };
 
   return {
     isRecording,
-    audioBlob,
     startRecording,
-    stopRecording,
-    transcribeAudio
+    stopRecording
   };
 };
