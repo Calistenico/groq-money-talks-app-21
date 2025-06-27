@@ -12,6 +12,7 @@ export const AdminPanel = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [instanceData, setInstanceData] = useState<any>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const createInstance = async () => {
     if (!instanceName.trim()) {
@@ -19,8 +20,11 @@ export const AdminPanel = () => {
       return;
     }
 
+    setIsCreating(true);
+    
     try {
       toast.info('Criando instância...');
+      console.log('Tentando criar instância com:', { instanceName, evolutionApiKey });
       
       const response = await fetch('https://v2.solucoesweb.uk/instance/create', {
         method: 'POST',
@@ -47,26 +51,44 @@ export const AdminPanel = () => {
         })
       });
 
-      const data = await response.json();
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erro ao fazer parse da resposta:', parseError);
+        throw new Error(`Resposta inválida da API: ${responseText}`);
+      }
       
       if (response.ok) {
+        console.log('Instância criada com sucesso:', data);
         setInstanceData(data);
         setIsConnected(true);
         toast.success('Instância criada com sucesso!');
         
-        // Buscar QR Code
-        await getQRCode();
+        // Buscar QR Code após criar instância
+        setTimeout(() => {
+          getQRCode();
+        }, 2000);
       } else {
-        throw new Error(data.message || 'Erro ao criar instância');
+        console.error('Erro na resposta da API:', data);
+        throw new Error(data.message || data.error || 'Erro desconhecido ao criar instância');
       }
     } catch (error) {
-      console.error('Erro ao criar instância:', error);
-      toast.error('Erro ao criar instância da Evolution API');
+      console.error('Erro detalhado ao criar instância:', error);
+      toast.error(`Erro: ${error.message}`);
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const getQRCode = async () => {
     try {
+      console.log('Buscando QR Code para instância:', instanceName);
+      
       const response = await fetch(`https://v2.solucoesweb.uk/instance/connect/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -74,14 +96,34 @@ export const AdminPanel = () => {
         }
       });
 
-      const data = await response.json();
+      console.log('QR Response status:', response.status);
+      const responseText = await response.text();
+      console.log('QR Response:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erro ao fazer parse do QR:', parseError);
+        return;
+      }
       
       if (data.base64) {
         setQrCode(data.base64);
+        toast.success('QR Code gerado! Escaneie com o WhatsApp');
+      } else {
+        console.log('QR Code não disponível ainda, tentando novamente...');
+        // Tentar novamente após alguns segundos
+        setTimeout(() => {
+          getQRCode();
+        }, 3000);
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
-      toast.error('Erro ao buscar QR Code');
+      toast.error('Erro ao buscar QR Code. Tentando novamente...');
+      setTimeout(() => {
+        getQRCode();
+      }, 5000);
     }
   };
 
@@ -89,6 +131,8 @@ export const AdminPanel = () => {
     if (!instanceName) return;
     
     try {
+      console.log('Verificando status da instância:', instanceName);
+      
       const response = await fetch(`https://v2.solucoesweb.uk/instance/connectionState/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -97,19 +141,25 @@ export const AdminPanel = () => {
       });
 
       const data = await response.json();
+      console.log('Status da instância:', data);
       
       if (data.instance?.state === 'open') {
         toast.success('WhatsApp conectado com sucesso!');
         setQrCode('');
+      } else {
+        toast.info(`Status: ${data.instance?.state || 'Desconhecido'}`);
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);
+      toast.error('Erro ao verificar status da instância');
     }
   };
 
-  const sendWelcomeMessage = async (phone: string, email: string, tempPassword: string) => {
+  const sendTestMessage = async () => {
     try {
-      const message = `👋 Olá, seja bem-vindo!\nAqui estão seus dados de acesso:\nUsuário: ${email}\nSenha: ${tempPassword}\nVocê ganhou 7 dias grátis para testar nosso sistema financeiro inteligente. Aproveite! 🎁`;
+      const message = `👋 Teste de mensagem do sistema!\nData: ${new Date().toLocaleString()}\nSistema funcionando corretamente! 🎉`;
+      
+      console.log('Enviando mensagem de teste...');
       
       const response = await fetch(`https://v2.solucoesweb.uk/message/sendText/${instanceName}`, {
         method: 'POST',
@@ -118,19 +168,22 @@ export const AdminPanel = () => {
           'apikey': evolutionApiKey
         },
         body: JSON.stringify({
-          number: phone,
+          number: '5544991082160', // Número de teste
           text: message
         })
       });
 
+      const responseText = await response.text();
+      console.log('Resposta do envio:', responseText);
+
       if (response.ok) {
-        toast.success('Mensagem de boas-vindas enviada!');
+        toast.success('Mensagem de teste enviada com sucesso!');
       } else {
-        throw new Error('Erro ao enviar mensagem');
+        throw new Error('Erro ao enviar mensagem de teste');
       }
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
-      toast.error('Erro ao enviar mensagem de boas-vindas');
+      toast.error('Erro ao enviar mensagem de teste');
     }
   };
 
@@ -158,16 +211,16 @@ export const AdminPanel = () => {
               id="instanceName"
               value={instanceName}
               onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="Digite o nome da instância (ex: meu-whatsapp)"
+              placeholder="Ex: financeiro, meu-whatsapp"
             />
           </div>
 
           <Button 
             onClick={createInstance}
             className="w-full"
-            disabled={isConnected}
+            disabled={isConnected || isCreating}
           >
-            {isConnected ? 'Instância Criada ✅' : 'Criar Instância'}
+            {isCreating ? 'Criando...' : isConnected ? 'Instância Criada ✅' : 'Criar Instância'}
           </Button>
 
           {isConnected && (
@@ -203,9 +256,9 @@ export const AdminPanel = () => {
 
               <div className="p-4 border rounded-lg bg-blue-50">
                 <h3 className="font-semibold text-blue-800 mb-2">Teste de Mensagem</h3>
-                <p className="text-sm text-blue-600 mb-2">Enviar mensagem de boas-vindas:</p>
+                <p className="text-sm text-blue-600 mb-2">Enviar mensagem de teste:</p>
                 <Button 
-                  onClick={() => sendWelcomeMessage('5511999999999', 'teste@email.com', '123456')}
+                  onClick={sendTestMessage}
                   variant="outline"
                   className="w-full"
                 >

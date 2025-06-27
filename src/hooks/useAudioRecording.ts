@@ -9,24 +9,52 @@ export const useAudioRecording = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Iniciando gravação de áudio...');
       
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
+      });
+      
+      // Verificar se o navegador suporta os codecs necessários
+      const options = { mimeType: 'audio/webm;codecs=opus' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        console.warn('Codec preferido não suportado, usando padrão');
+        options.mimeType = 'audio/webm';
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log('Dados de áudio disponíveis:', event.data.size);
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.onerror = (event) => {
+        console.error('Erro no MediaRecorder:', event);
+        toast.error('Erro durante a gravação');
+      };
+
+      mediaRecorder.start(100); // Capturar dados a cada 100ms
       setIsRecording(true);
       toast.info('Gravação iniciada...');
+      
     } catch (error) {
       console.error('Erro ao iniciar gravação:', error);
-      toast.error('Erro ao acessar microfone');
+      if (error.name === 'NotAllowedError') {
+        toast.error('Permissão de microfone negada');
+      } else if (error.name === 'NotFoundError') {
+        toast.error('Microfone não encontrado');
+      } else {
+        toast.error('Erro ao acessar microfone');
+      }
     }
   };
 
@@ -35,21 +63,42 @@ export const useAudioRecording = () => {
       const mediaRecorder = mediaRecorderRef.current;
       
       if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        console.warn('MediaRecorder não está ativo');
         resolve(null);
         return;
       }
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        console.log('Gravação finalizada, processando chunks:', chunksRef.current.length);
         
-        // Parar todas as tracks
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        if (chunksRef.current.length === 0) {
+          console.warn('Nenhum chunk de áudio capturado');
+          toast.error('Nenhum áudio foi capturado');
+          resolve(null);
+          return;
+        }
+
+        const audioBlob = new Blob(chunksRef.current, { 
+          type: 'audio/webm;codecs=opus' 
+        });
+        
+        console.log('Blob de áudio criado:', {
+          size: audioBlob.size,
+          type: audioBlob.type
+        });
+        
+        // Parar todas as tracks do stream
+        mediaRecorder.stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Track parada:', track.kind);
+        });
         
         setIsRecording(false);
         toast.success('Gravação finalizada!');
         resolve(audioBlob);
       };
 
+      console.log('Parando gravação...');
       mediaRecorder.stop();
     });
   };

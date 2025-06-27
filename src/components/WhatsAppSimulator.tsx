@@ -7,8 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { processMessage } from '@/utils/messageProcessor';
 import { toast } from 'sonner';
 import { Transaction } from '@/hooks/useTransactions';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Send } from 'lucide-react';
 import { useAudioRecording } from '@/hooks/useAudioRecording';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
     }
   ]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const { isRecording, startRecording, stopRecording } = useAudioRecording();
 
   const sendMessage = async () => {
@@ -73,45 +75,69 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
 
   const handleVoiceRecord = async () => {
     if (isRecording) {
+      console.log('Parando gravação...');
       const audioBlob = await stopRecording();
       if (audioBlob) {
         await transcribeAudio(audioBlob);
       }
     } else {
+      console.log('Iniciando gravação...');
       await startRecording();
     }
   };
 
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
+      setIsTranscribing(true);
       toast.info('Transcrevendo áudio...');
+      
+      console.log('Convertendo áudio para base64...');
+      console.log('Tamanho do áudio:', audioBlob.size, 'bytes');
       
       // Converter para base64
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64Audio = (reader.result as string).split(',')[1];
-        
-        const response = await fetch('/api/transcribe-audio', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ audio: base64Audio }),
-        });
+        try {
+          const base64Audio = (reader.result as string).split(',')[1];
+          console.log('Base64 convertido, tamanho:', base64Audio.length);
+          
+          console.log('Chamando função de transcrição...');
+          const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+            body: { audio: base64Audio }
+          });
 
-        if (response.ok) {
-          const { text } = await response.json();
-          setInputMessage(text);
-          toast.success('Áudio transcrito com sucesso!');
-        } else {
-          toast.error('Erro ao transcrever áudio');
+          if (error) {
+            console.error('Erro da função:', error);
+            throw new Error(error.message || 'Erro na função de transcrição');
+          }
+
+          if (data && data.text) {
+            console.log('Texto transcrito:', data.text);
+            setInputMessage(data.text);
+            toast.success('Áudio transcrito com sucesso!');
+          } else {
+            throw new Error('Nenhum texto foi transcrito');
+          }
+          
+        } catch (transcriptionError) {
+          console.error('Erro na transcrição:', transcriptionError);
+          toast.error(`Erro ao transcrever áudio: ${transcriptionError.message}`);
+        } finally {
+          setIsTranscribing(false);
         }
+      };
+      
+      reader.onerror = () => {
+        console.error('Erro ao ler arquivo de áudio');
+        toast.error('Erro ao processar arquivo de áudio');
+        setIsTranscribing(false);
       };
       
       reader.readAsDataURL(audioBlob);
     } catch (error) {
-      console.error('Erro na transcrição:', error);
-      toast.error('Erro ao transcrever áudio');
+      console.error('Erro geral na transcrição:', error);
+      toast.error('Erro ao processar áudio');
+      setIsTranscribing(false);
     }
   };
 
@@ -156,29 +182,46 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
         
         <div className="p-2 md:p-4 border-t bg-white flex-shrink-0">
           <div className="flex gap-2 items-end">
-            <div className="flex-1 flex gap-2">
+            <div className="flex-1">
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Digite sua mensagem..."
-                className="flex-1 text-sm md:text-base"
+                placeholder="Digite sua mensagem ou use o microfone..."
+                className="text-sm md:text-base"
+                disabled={isTranscribing}
               />
-              <Button
-                onClick={handleVoiceRecord}
-                variant="outline"
-                size="icon"
-                className={`flex-shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : ''}`}
-              >
-                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </Button>
             </div>
+            
+            <Button
+              onClick={handleVoiceRecord}
+              variant="outline"
+              size="icon"
+              className={`flex-shrink-0 ${
+                isRecording 
+                  ? 'bg-red-500 text-white animate-pulse' 
+                  : isTranscribing 
+                  ? 'bg-yellow-500 text-white'
+                  : ''
+              }`}
+              disabled={isTranscribing}
+            >
+              {isTranscribing ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+            
             <Button 
               onClick={sendMessage}
               className="bg-green-500 hover:bg-green-600 flex-shrink-0"
-              size="default"
+              size="icon"
+              disabled={!inputMessage.trim() || isTranscribing}
             >
-              Enviar
+              <Send className="h-4 w-4" />
             </Button>
           </div>
         </div>
