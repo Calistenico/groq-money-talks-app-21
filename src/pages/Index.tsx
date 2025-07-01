@@ -7,7 +7,6 @@ import { ExpenseReport } from "@/components/reports/ExpenseReport";
 import { Header } from "@/components/Header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Home } from "lucide-react";
-import { WhatsAppSimulator } from "@/components/WhatsAppSimulator";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -46,18 +45,10 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <div className="space-y-6">
-              <Dashboard transactions={transactions} />
-              
-              {/* Chat Principal - Sempre visível */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold mb-4 text-center">💬 Assistente Financeiro WhatsApp</h2>
-                <WhatsAppSimulator 
-                  transactions={transactions}
-                  onAddTransaction={addTransaction}
-                />
-              </div>
-            </div>
+            <Dashboard 
+              transactions={transactions} 
+              onAddTransaction={addTransaction}
+            />
           </TabsContent>
 
           <TabsContent value="reports">

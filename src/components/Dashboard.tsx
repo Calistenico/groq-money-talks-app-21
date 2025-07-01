@@ -8,9 +8,10 @@ import { TrendingDown, TrendingUp, DollarSign } from 'lucide-react';
 
 interface DashboardProps {
   transactions: Transaction[];
+  onAddTransaction: (transaction: Omit<Transaction, 'id' | 'user_phone'>) => void;
 }
 
-export const Dashboard = ({ transactions }: DashboardProps) => {
+export const Dashboard = ({ transactions, onAddTransaction }: DashboardProps) => {
   const todayTransactions = getTodayTransactions(transactions);
   const todayExpenses = todayTransactions.filter(t => t.type === 'gasto');
   const todayIncome = todayTransactions.filter(t => t.type === 'lucro');
@@ -68,10 +69,7 @@ export const Dashboard = ({ transactions }: DashboardProps) => {
         <div className="lg:col-span-1">
           <WhatsAppSimulator 
             transactions={transactions}
-            onAddTransaction={(transaction) => {
-              // A função addTransaction será chamada pelo hook useTransactions
-              console.log('Nova transação via chat:', transaction);
-            }}
+            onAddTransaction={onAddTransaction}
           />
         </div>
 
