@@ -41,22 +41,31 @@ export type Database = {
       }
       users: {
         Row: {
+          activated_at: string | null
           created_at: string
+          expires_at: string | null
           id: string
           password_hash: string
           phone: string
+          status: Database["public"]["Enums"]["user_status"] | null
         }
         Insert: {
+          activated_at?: string | null
           created_at?: string
+          expires_at?: string | null
           id?: string
           password_hash: string
           phone: string
+          status?: Database["public"]["Enums"]["user_status"] | null
         }
         Update: {
+          activated_at?: string | null
           created_at?: string
+          expires_at?: string | null
           id?: string
           password_hash?: string
           phone?: string
+          status?: Database["public"]["Enums"]["user_status"] | null
         }
         Relationships: []
       }
@@ -65,10 +74,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_expired_users: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_status: "Teste 7 dias" | "Ativado" | "Cancelado" | "Vencido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -183,6 +195,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_status: ["Teste 7 dias", "Ativado", "Cancelado", "Vencido"],
+    },
   },
 } as const

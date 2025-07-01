@@ -1,16 +1,25 @@
 
-import { AuthForm } from '@/components/AuthForm';
-import { Dashboard } from '@/components/Dashboard';
-import { WhatsAppSimulator } from '@/components/WhatsAppSimulator';
-import { Header } from '@/components/Header';
-import { useAuth } from '@/hooks/useAuth';
-import { useTransactions } from '@/hooks/useTransactions';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from "@/hooks/useAuth";
+import { AuthForm } from "@/components/AuthForm";
+import { Dashboard } from "@/components/Dashboard";
+import { ExpenseReport } from "@/components/reports/ExpenseReport";
+import { Header } from "@/components/Header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart3, Home } from "lucide-react";
 
 const Index = () => {
-  const { user } = useAuth();
-  const { transactions, addTransaction } = useTransactions();
-  const isMobile = useIsMobile();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <AuthForm />;
@@ -20,26 +29,28 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
       <Header />
       
-      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
-        <div className={`grid gap-4 md:gap-8 ${
-          isMobile 
-            ? 'grid-cols-1' 
-            : 'grid-cols-1 lg:grid-cols-2'
-        }`}>
-          {/* WhatsApp Simulator - Primeira no mobile */}
-          <div className={isMobile ? 'order-1' : 'order-1 lg:order-2'}>
-            <WhatsAppSimulator 
-              transactions={transactions}
-              onAddTransaction={addTransaction}
-            />
-          </div>
-          
-          {/* Dashboard - Segunda no mobile */}
-          <div className={isMobile ? 'order-2' : 'order-2 lg:order-1'}>
-            <Dashboard transactions={transactions} />
-          </div>
-        </div>
-      </div>
+      <main className="container mx-auto px-4 py-6">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 lg:w-96 mx-auto">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Relatórios
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard">
+            <Dashboard />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ExpenseReport />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };
