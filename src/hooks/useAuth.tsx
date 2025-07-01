@@ -32,6 +32,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const sendWelcomeMessage = async (phone: string, password: string) => {
     try {
+      console.log('📱 Enviando mensagem de boas-vindas via WhatsApp...');
+      
+      // Formatar o telefone (remover caracteres especiais)
+      const cleanPhone = phone.replace(/\D/g, '');
+      const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+      
+      const welcomeMessage = `🎉 *Bem-vindo ao Controle Financeiro WhatsApp!*
+
+👤 *Seus dados de acesso:*
+📱 Usuário: ${phone}
+🔐 Senha: ${password}
+
+🎁 *OFERTA ESPECIAL:*
+Você ganhou *7 DIAS GRÁTIS* para testar nosso sistema financeiro inteligente!
+
+✨ *Com nosso sistema você pode:*
+• Registrar gastos e ganhos por WhatsApp
+• Acompanhar seu saldo em tempo real
+• Receber relatórios automáticos
+• Controlar suas finanças de forma simples
+
+💬 *Como usar:*
+Envie mensagens como:
+• "gastei 50 com mercado"
+• "recebi 200 do trabalho"
+• "saldo do dia"
+
+🚀 Aproveite seus 7 dias grátis e transforme sua vida financeira!
+
+Acesse: https://groq-money-talks-app-21.lovable.app/`;
+
       const response = await fetch('https://v2.solucoesweb.uk/message/sendText/financial-assistant', {
         method: 'POST',
         headers: {
@@ -39,18 +70,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           'apikey': 'cc2ad6931f7c17a9e98d10127c43dfbf'
         },
         body: JSON.stringify({
-          number: phone.replace(/\D/g, ''),
-          text: `👋 Olá, seja bem-vindo!\nAqui estão seus dados de acesso:\nUsuário: ${phone}\nSenha: ${password}\nVocê ganhou 7 dias grátis para testar nosso sistema financeiro inteligente. Aproveite! 🎁`
+          number: formattedPhone,
+          text: welcomeMessage
         })
       });
 
       if (response.ok) {
-        console.log('Mensagem de boas-vindas enviada via WhatsApp');
+        console.log('✅ Mensagem de boas-vindas enviada via WhatsApp');
+        toast.success('Mensagem de boas-vindas enviada no WhatsApp! 🎉');
       } else {
-        console.error('Erro ao enviar mensagem de boas-vindas');
+        console.error('❌ Erro ao enviar mensagem de boas-vindas:', response.status);
+        toast.info('Conta criada! (Mensagem de WhatsApp pode demorar alguns minutos)');
       }
     } catch (error) {
-      console.error('Erro ao enviar mensagem de boas-vindas:', error);
+      console.error('❌ Erro ao enviar mensagem de boas-vindas:', error);
+      toast.info('Conta criada com sucesso!');
     }
   };
 
@@ -86,7 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Enviar mensagem de boas-vindas via WhatsApp
       await sendWelcomeMessage(phone, password);
       
-      toast.success('Conta criada com sucesso! Mensagem de boas-vindas enviada no WhatsApp!');
+      toast.success('Conta criada com sucesso! Você ganhou 7 dias grátis! 🎁');
       return true;
     } catch (error) {
       console.error('Erro interno:', error);
