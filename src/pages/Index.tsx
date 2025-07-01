@@ -1,5 +1,6 @@
 
 import { useAuth } from "@/hooks/useAuth";
+import { useTransactions } from "@/hooks/useTransactions";
 import { AuthForm } from "@/components/AuthForm";
 import { Dashboard } from "@/components/Dashboard";
 import { ExpenseReport } from "@/components/reports/ExpenseReport";
@@ -9,6 +10,7 @@ import { BarChart3, Home } from "lucide-react";
 
 const Index = () => {
   const { user, loading } = useAuth();
+  const { transactions, loading: transactionsLoading } = useTransactions();
 
   if (loading) {
     return (
@@ -43,7 +45,7 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <Dashboard />
+            <Dashboard transactions={transactions} />
           </TabsContent>
 
           <TabsContent value="reports">
