@@ -1,9 +1,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
-import { formatCurrency } from '@/utils/formatters';
-import { getToday, getTodayTransactions } from '@/utils/dateUtils';
+import { WhatsAppSimulator } from './WhatsAppSimulator';
 import { Transaction } from '@/hooks/useTransactions';
+import { formatCurrency } from '@/utils/formatters';
+import { getTodayTransactions } from '@/utils/dateUtils';
+import { TrendingDown, TrendingUp, DollarSign } from 'lucide-react';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -11,152 +12,140 @@ interface DashboardProps {
 
 export const Dashboard = ({ transactions }: DashboardProps) => {
   const todayTransactions = getTodayTransactions(transactions);
+  const todayExpenses = todayTransactions.filter(t => t.type === 'gasto');
+  const todayIncome = todayTransactions.filter(t => t.type === 'lucro');
   
-  const todayExpenses = todayTransactions
-    .filter(t => t.type === 'gasto')
-    .reduce((sum, t) => sum + t.value, 0);
-    
-  const todayIncome = todayTransactions
-    .filter(t => t.type === 'lucro')
-    .reduce((sum, t) => sum + t.value, 0);
-    
-  const balance = todayIncome - todayExpenses;
-
-  const totalExpenses = transactions
-    .filter(t => t.type === 'gasto')
-    .reduce((sum, t) => sum + t.value, 0);
-    
-  const totalIncome = transactions
-    .filter(t => t.type === 'lucro')
-    .reduce((sum, t) => sum + t.value, 0);
+  const totalExpenses = todayExpenses.reduce((sum, t) => sum + t.value, 0);
+  const totalIncome = todayIncome.reduce((sum, t) => sum + t.value, 0);
+  const balance = totalIncome - totalExpenses;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Financeiro</h2>
-        <p className="text-gray-600">Resumo de hoje - {getToday()}</p>
-      </div>
-
-      {/* Cards do dia */}
+      {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
-              <ArrowDown className="h-4 w-4" />
-              Gastos Hoje
-            </CardTitle>
+        <Card className="bg-red-50 border-red-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-red-700">Gastos Hoje</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(todayExpenses)}
-            </div>
-            <p className="text-xs text-red-500 mt-1">
-              {todayTransactions.filter(t => t.type === 'gasto').length} transações
-            </p>
+            <div className="text-2xl font-bold text-red-700">{formatCurrency(totalExpenses)}</div>
+            <p className="text-xs text-red-600">{todayExpenses.length} transações</p>
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-700 flex items-center gap-2">
-              <ArrowUp className="h-4 w-4" />
-              Ganhos Hoje
-            </CardTitle>
+        <Card className="bg-green-50 border-green-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-green-700">Ganhos Hoje</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(todayIncome)}
-            </div>
-            <p className="text-xs text-green-500 mt-1">
-              {todayTransactions.filter(t => t.type === 'lucro').length} transações
-            </p>
+            <div className="text-2xl font-bold text-green-700">{formatCurrency(totalIncome)}</div>
+            <p className="text-xs text-green-600">{todayIncome.length} transações</p>
           </CardContent>
         </Card>
 
-        <Card className={`border-blue-200 ${balance >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
-          <CardHeader className="pb-2">
-            <CardTitle className={`text-sm font-medium flex items-center gap-2 ${
-              balance >= 0 ? 'text-blue-700' : 'text-orange-700'
-            }`}>
-              <DollarSign className="h-4 w-4" />
+        <Card className={`${balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className={`text-sm font-medium ${balance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
               Saldo Hoje
             </CardTitle>
+            <DollarSign className={`h-4 w-4 ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${
-              balance >= 0 ? 'text-blue-600' : 'text-orange-600'
-            }`}>
+            <div className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
               {formatCurrency(balance)}
             </div>
-            <p className={`text-xs mt-1 ${
-              balance >= 0 ? 'text-blue-500' : 'text-orange-500'
-            }`}>
+            <p className={`text-xs ${balance >= 0 ? 'text-blue-600 font-medium' : 'text-red-600'}`}>
               {balance >= 0 ? 'Positivo' : 'Negativo'}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Resumo Total */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumo Geral</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Total de Gastos</p>
-              <p className="text-xl font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total de Ganhos</p>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(totalIncome)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chat do WhatsApp - Funcionalidade Principal */}
+        <div className="lg:col-span-1">
+          <WhatsAppSimulator 
+            transactions={transactions}
+            onAddTransaction={(transaction) => {
+              // A função addTransaction será chamada pelo hook useTransactions
+              console.log('Nova transação via chat:', transaction);
+            }}
+          />
+        </div>
 
-      {/* Últimas Transações */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Últimas Transações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {transactions.slice(0, 5).map((transaction) => (
-              <div key={transaction.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${
-                    transaction.type === 'gasto' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
-                  }`}>
-                    {transaction.type === 'gasto' ? (
-                      <ArrowDown className="h-4 w-4" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{transaction.description}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(transaction.timestamp).toLocaleString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-                <p className={`font-bold ${
-                  transaction.type === 'gasto' ? 'text-red-600' : 'text-green-600'
-                }`}>
-                  {transaction.type === 'gasto' ? '-' : '+'}{formatCurrency(transaction.value)}
-                </p>
+        {/* Resumo Geral */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Resumo Geral</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total de Gastos</span>
+                <span className="font-semibold text-red-600">
+                  {formatCurrency(transactions.filter(t => t.type === 'gasto').reduce((sum, t) => sum + t.value, 0))}
+                </span>
               </div>
-            ))}
-            {transactions.length === 0 && (
-              <p className="text-gray-500 text-center py-4">
-                Nenhuma transação registrada ainda
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total de Ganhos</span>
+                <span className="font-semibold text-green-600">
+                  {formatCurrency(transactions.filter(t => t.type === 'lucro').reduce((sum, t) => sum + t.value, 0))}
+                </span>
+              </div>
+              <div className="border-t pt-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Saldo Total</span>
+                  <span className={`font-bold ${
+                    transactions.filter(t => t.type === 'lucro').reduce((sum, t) => sum + t.value, 0) -
+                    transactions.filter(t => t.type === 'gasto').reduce((sum, t) => sum + t.value, 0) >= 0
+                    ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {formatCurrency(
+                      transactions.filter(t => t.type === 'lucro').reduce((sum, t) => sum + t.value, 0) -
+                      transactions.filter(t => t.type === 'gasto').reduce((sum, t) => sum + t.value, 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Últimas Transações */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Últimas Transações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {transactions.slice(0, 5).map((transaction) => (
+                  <div key={transaction.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                    <div className="flex items-center gap-2">
+                      {transaction.type === 'lucro' ? (
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-sm">{transaction.description}</span>
+                    </div>
+                    <span className={`font-medium ${
+                      transaction.type === 'lucro' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {transaction.type === 'lucro' ? '+' : '-'}{formatCurrency(transaction.value)}
+                    </span>
+                  </div>
+                ))}
+                {transactions.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Nenhuma transação registrada ainda.
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
