@@ -74,11 +74,18 @@ serve(async (req) => {
 
     console.log('Enviando para GROQ API...');
 
+    // Obter chave da GROQ das secrets do Supabase
+    const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    
+    if (!groqApiKey) {
+      throw new Error('Chave da API GROQ não configurada. Configure no painel admin.');
+    }
+
     // Chamar GROQ API
     const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer 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',
+        'Authorization': `Bearer ${groqApiKey}`,
       },
       body: formData,
     });

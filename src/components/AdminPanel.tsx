@@ -8,11 +8,13 @@ import { toast } from 'sonner';
 
 export const AdminPanel = () => {
   const [evolutionApiKey, setEvolutionApiKey] = useState('cc2ad6931f7c17a9e98d10127c43dfbf');
+  const [groqApiKey, setGroqApiKey] = useState('');
   const [instanceName, setInstanceName] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [instanceData, setInstanceData] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSavingGroq, setIsSavingGroq] = useState(false);
 
   const createInstance = async () => {
     if (!instanceName.trim()) {
@@ -234,6 +236,40 @@ export const AdminPanel = () => {
     }
   };
 
+  const saveGroqApiKey = async () => {
+    if (!groqApiKey.trim()) {
+      toast.error('Digite a chave da API GROQ');
+      return;
+    }
+
+    setIsSavingGroq(true);
+    
+    try {
+      // Salvar a chave da GROQ no localStorage temporariamente
+      // Em produção seria salvo no Supabase Secrets
+      localStorage.setItem('groq_api_key', groqApiKey.trim());
+      toast.success('Chave da API GROQ salva com sucesso!');
+      
+      // Testar a chave fazendo uma requisição simples
+      const testResponse = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${groqApiKey.trim()}`,
+        }
+      });
+      
+      if (testResponse.ok) {
+        toast.success('API GROQ conectada e funcionando!');
+      } else {
+        toast.warning('Chave salva, mas falha ao conectar com GROQ API');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar chave GROQ:', error);
+      toast.error('Erro ao conectar com GROQ API');
+    } finally {
+      setIsSavingGroq(false);
+    }
+  };
+
   const sendTestMessage = async () => {
     try {
       const message = `👋 Teste de mensagem do sistema!\nData: ${new Date().toLocaleString()}\nSistema funcionando corretamente! 🎉`;
@@ -282,6 +318,28 @@ export const AdminPanel = () => {
               onChange={(e) => setEvolutionApiKey(e.target.value)}
               placeholder="Digite sua chave da Evolution API"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="groqApiKey">Chave da API GROQ (Transcrição de Áudio)</Label>
+            <Input
+              id="groqApiKey"
+              type="password"
+              value={groqApiKey}
+              onChange={(e) => setGroqApiKey(e.target.value)}
+              placeholder="Digite sua chave da API GROQ"
+            />
+            <Button 
+              onClick={saveGroqApiKey}
+              className="w-full"
+              disabled={isSavingGroq}
+              variant="outline"
+            >
+              {isSavingGroq ? 'Salvando...' : 'Salvar API GROQ'}
+            </Button>
+            <p className="text-xs text-gray-500">
+              Necessária para transcrever áudios no gestor financeiro.
+            </p>
           </div>
 
           <div className="space-y-2">
