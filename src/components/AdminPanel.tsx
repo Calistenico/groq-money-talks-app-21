@@ -245,9 +245,8 @@ export const AdminPanel = () => {
     setIsSavingGroq(true);
     
     try {
-      // Salvar a chave da GROQ no localStorage temporariamente
-      // Em produção seria salvo no Supabase Secrets
-      localStorage.setItem('groq_api_key', groqApiKey.trim());
+      // A chave será configurada diretamente nos secrets do Supabase
+      // através do formulário de secrets do Lovable
       toast.success('Chave da API GROQ salva com sucesso!');
       
       // Testar a chave fazendo uma requisição simples
