@@ -27,7 +27,7 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: '🤖 Olá! Sou seu assistente financeiro!\nEnvie mensagens como:\n💸 "gastei 20 com marmita"\n💰 "ganhei 50 do freelance"\n📊 "saldo do dia", "lucro do dia"',
+      text: '🤖 Olá! Sou seu assistente financeiro!\nEnvie mensagens como:\n💸 "gastei 20 com marmita"\n💰 "ganhei 50 do freelance"\n📊 "saldo do dia", "lucro do dia"\n🎤 Ou use o microfone para gravar áudios!',
       isUser: false,
       timestamp: new Date()
     }
@@ -75,13 +75,13 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
 
   const handleVoiceRecord = async () => {
     if (isRecording) {
-      console.log('Parando gravação...');
+      console.log('🛑 Parando gravação...');
       const audioBlob = await stopRecording();
       if (audioBlob) {
         await transcribeAudio(audioBlob);
       }
     } else {
-      console.log('Iniciando gravação...');
+      console.log('🎙️ Iniciando gravação...');
       await startRecording();
     }
   };
@@ -89,54 +89,74 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       setIsTranscribing(true);
-      toast.info('Transcrevendo áudio...');
+      toast.info('🎤 Transcrevendo áudio...');
       
-      console.log('Convertendo áudio para base64...');
-      console.log('Tamanho do áudio:', audioBlob.size, 'bytes');
+      console.log('📁 Convertendo áudio para base64...');
+      console.log('📊 Tamanho do áudio:', audioBlob.size, 'bytes');
+      console.log('🎵 Tipo do áudio:', audioBlob.type);
+      
+      // Verificar se o áudio tem tamanho mínimo
+      if (audioBlob.size < 1000) {
+        throw new Error('Áudio muito curto. Grave por pelo menos 1 segundo.');
+      }
       
       // Converter para base64
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
           const base64Audio = (reader.result as string).split(',')[1];
-          console.log('Base64 convertido, tamanho:', base64Audio.length);
+          console.log('✅ Base64 convertido, tamanho:', base64Audio.length);
           
-          console.log('Chamando função de transcrição...');
+          console.log('🚀 Chamando função de transcrição...');
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
             body: { audio: base64Audio }
           });
 
           if (error) {
-            console.error('Erro da função:', error);
+            console.error('❌ Erro da função:', error);
             throw new Error(error.message || 'Erro na função de transcrição');
           }
 
           if (data && data.text) {
-            console.log('Texto transcrito:', data.text);
+            console.log('✅ Texto transcrito:', data.text);
             setInputMessage(data.text);
-            toast.success('Áudio transcrito com sucesso!');
+            toast.success('🎤 Áudio transcrito com sucesso!');
           } else {
-            throw new Error('Nenhum texto foi transcrito');
+            console.error('❌ Resposta sem texto:', data);
+            throw new Error('Nenhum texto foi transcrito do áudio');
           }
           
         } catch (transcriptionError) {
-          console.error('Erro na transcrição:', transcriptionError);
-          toast.error(`Erro ao transcrever áudio: ${transcriptionError.message}`);
+          console.error('💥 Erro na transcrição:', transcriptionError);
+          
+          // Mensagens de erro mais específicas
+          let errorMessage = 'Erro ao transcrever áudio';
+          if (transcriptionError.message.includes('GROQ_API_KEY')) {
+            errorMessage = 'API GROQ não configurada. Configure no painel admin.';
+          } else if (transcriptionError.message.includes('inválida')) {
+            errorMessage = 'Chave da API GROQ inválida. Verifique a configuração.';
+          } else if (transcriptionError.message.includes('áudio inválidos')) {
+            errorMessage = 'Formato de áudio inválido. Tente gravar novamente.';
+          } else if (transcriptionError.message.includes('muito curto')) {
+            errorMessage = transcriptionError.message;
+          }
+          
+          toast.error(`❌ ${errorMessage}`);
         } finally {
           setIsTranscribing(false);
         }
       };
       
       reader.onerror = () => {
-        console.error('Erro ao ler arquivo de áudio');
-        toast.error('Erro ao processar arquivo de áudio');
+        console.error('💥 Erro ao ler arquivo de áudio');
+        toast.error('❌ Erro ao processar arquivo de áudio');
         setIsTranscribing(false);
       };
       
       reader.readAsDataURL(audioBlob);
     } catch (error) {
-      console.error('Erro geral na transcrição:', error);
-      toast.error('Erro ao processar áudio');
+      console.error('💥 Erro geral na transcrição:', error);
+      toast.error('❌ Erro ao processar áudio');
       setIsTranscribing(false);
     }
   };
@@ -199,12 +219,19 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
               size="icon"
               className={`flex-shrink-0 ${
                 isRecording 
-                  ? 'bg-red-500 text-white animate-pulse' 
+                  ? 'bg-red-500 text-white animate-pulse border-red-500' 
                   : isTranscribing 
-                  ? 'bg-yellow-500 text-white'
-                  : ''
+                  ? 'bg-yellow-500 text-white border-yellow-500'
+                  : 'hover:bg-gray-50'
               }`}
               disabled={isTranscribing}
+              title={
+                isTranscribing 
+                  ? 'Transcrevendo áudio...' 
+                  : isRecording 
+                  ? 'Clique para parar a gravação' 
+                  : 'Clique para gravar áudio'
+              }
             >
               {isTranscribing ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -220,10 +247,17 @@ export const WhatsAppSimulator = ({ transactions, onAddTransaction }: WhatsAppSi
               className="bg-green-500 hover:bg-green-600 flex-shrink-0"
               size="icon"
               disabled={!inputMessage.trim() || isTranscribing}
+              title="Enviar mensagem"
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
+          
+          {isTranscribing && (
+            <div className="mt-2 text-center">
+              <p className="text-xs text-gray-500">🎤 Transcrevendo áudio, aguarde...</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

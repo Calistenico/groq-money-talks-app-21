@@ -71,6 +71,7 @@ serve(async (req) => {
     formData.append('model', 'whisper-large-v3');
     formData.append('response_format', 'json');
     formData.append('language', 'pt');
+    formData.append('temperature', '0');
 
     console.log('Enviando para GROQ API...');
 
@@ -83,6 +84,7 @@ serve(async (req) => {
     }
     
     console.log('✅ GROQ_API_KEY encontrada, iniciando transcrição...');
+    console.log('🔑 Chave GROQ (primeiros 10 chars):', groqApiKey.substring(0, 10) + '...');
 
     // Chamar GROQ API
     const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
@@ -94,19 +96,32 @@ serve(async (req) => {
     });
 
     console.log('Status da resposta GROQ:', response.status);
+    console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Erro da GROQ API:', errorText);
-      throw new Error(`Erro da GROQ API (${response.status}): ${errorText}`);
+      console.error('❌ Erro da GROQ API:', errorText);
+      console.error('Status:', response.status);
+      console.error('StatusText:', response.statusText);
+      
+      if (response.status === 401) {
+        throw new Error('Chave da API GROQ inválida ou expirada. Verifique a configuração.');
+      } else if (response.status === 400) {
+        throw new Error('Dados de áudio inválidos. Tente gravar novamente.');
+      } else {
+        throw new Error(`Erro da GROQ API (${response.status}): ${errorText}`);
+      }
     }
 
     const result = await response.json();
-    console.log('Transcrição concluída:', result);
+    console.log('✅ Transcrição concluída:', result);
 
     if (!result.text) {
+      console.error('❌ Nenhum texto retornado:', result);
       throw new Error('Nenhum texto transcrito recebido da GROQ API');
     }
+
+    console.log('🎤 Texto transcrito:', result.text);
 
     return new Response(
       JSON.stringify({ text: result.text }),
