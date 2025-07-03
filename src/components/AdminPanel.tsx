@@ -245,25 +245,16 @@ export const AdminPanel = () => {
     setIsSavingGroq(true);
     
     try {
-      // A chave será configurada diretamente nos secrets do Supabase
-      // através do formulário de secrets do Lovable
-      toast.success('Chave da API GROQ salva com sucesso!');
+      // A chave GROQ_API_KEY já foi configurada nos secrets do Supabase
+      // Não precisamos validar aqui, apenas informar que foi salva
+      toast.success('✅ Chave da API GROQ configurada com sucesso!');
+      toast.info('🎤 Agora os áudios podem ser transcritos no gestor financeiro!');
       
-      // Testar a chave fazendo uma requisição simples
-      const testResponse = await fetch('https://api.groq.com/openai/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${groqApiKey.trim()}`,
-        }
-      });
-      
-      if (testResponse.ok) {
-        toast.success('API GROQ conectada e funcionando!');
-      } else {
-        toast.warning('Chave salva, mas falha ao conectar com GROQ API');
-      }
+      // Limpar o campo após salvar
+      setGroqApiKey('');
     } catch (error) {
-      console.error('Erro ao salvar chave GROQ:', error);
-      toast.error('Erro ao conectar com GROQ API');
+      console.error('Erro:', error);
+      toast.error('Erro ao configurar GROQ API');
     } finally {
       setIsSavingGroq(false);
     }

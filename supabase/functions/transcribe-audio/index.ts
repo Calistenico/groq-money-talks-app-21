@@ -78,8 +78,11 @@ serve(async (req) => {
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     
     if (!groqApiKey) {
-      throw new Error('Chave da API GROQ não configurada. Configure no painel admin.');
+      console.error('❌ GROQ_API_KEY não encontrada nos secrets');
+      throw new Error('Chave da API GROQ não configurada. Configure a GROQ_API_KEY nos secrets do Supabase.');
     }
+    
+    console.log('✅ GROQ_API_KEY encontrada, iniciando transcrição...');
 
     // Chamar GROQ API
     const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
